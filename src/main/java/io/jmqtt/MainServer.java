@@ -73,13 +73,13 @@ public class MainServer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        LaunchOptions res = parseArguments(args);
-        if (res.isHelpNeeded()) {
-            printUsage(res);
+        //LaunchOptions res = parseArguments(args);
+        //if (res.isHelpNeeded()) {
+         //   printUsage(res);
             // Help was requested, so we are done here
-            return;
-        }
-        if (res.getOption().equalsIgnoreCase("start")) {
+        //   return;
+       // }
+       // if (res.getOption().equalsIgnoreCase("start")) {
             final MainServer mainServer = new MainServer();
             // 用测试文件
             IResourceLoader classpathLoader = new ClasspathResourceLoader();
@@ -88,7 +88,7 @@ public class MainServer implements CommandLineRunner {
             System.out.println("Server started, version 0.13-SNAPSHOT");
             //Bind a shutdown hook
             Runtime.getRuntime().addShutdownHook(new Thread(mainServer::stopServer));
-        }
+       // }
     }
 
     private LaunchOptions parseArguments(String[] args) {
