@@ -19,7 +19,6 @@ import io.jmqtt.broker.*;
 import io.jmqtt.broker.config.*;
 import io.jmqtt.broker.security.*;
 import io.jmqtt.interception.InterceptHandler;
-import io.jmqtt.listener.PublisherListener;
 import io.jmqtt.persistence.H2Builder;
 import io.jmqtt.persistence.MemorySubscriptionsRepository;
 import io.jmqtt.interception.BrokerInterceptor;
@@ -85,8 +84,7 @@ public class MainServer implements CommandLineRunner {
         // 用测试文件
         IResourceLoader classpathLoader = new ClasspathResourceLoader();
         final IConfig classPathConfig = new ResourceLoaderConfig(classpathLoader);
-        List<? extends InterceptHandler> userHandlers = Collections.singletonList(new PublisherListener());
-        mainServer.startServer(classPathConfig, userHandlers);
+        mainServer.startServer(classPathConfig);
         System.out.println("Server started, version 0.13-SNAPSHOT");
         //Bind a shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(mainServer::stopServer));
