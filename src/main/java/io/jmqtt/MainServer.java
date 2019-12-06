@@ -16,7 +16,6 @@
 package io.jmqtt;
 
 import io.jmqtt.broker.*;
-import io.jmqtt.broker.config.*;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.slf4j.Logger;
@@ -40,13 +39,7 @@ public class MainServer implements CommandLineRunner {
     private final Logger logger = LoggerFactory.getLogger(MainServer.class);
 
     @Resource
-    private IConfig config;
-
-    @Resource
     private NewNettyAcceptor newNettyAcceptor;
-
-    @Resource
-    private NewNettyMQTTHandler newNettyMQTTHandler;
 
     /**
      * main
@@ -67,7 +60,7 @@ public class MainServer implements CommandLineRunner {
         //   return;
         // }
         // if (res.getOption().equalsIgnoreCase("start")) {
-        newNettyAcceptor.initialize(newNettyMQTTHandler, config, new DefaultMoquetteSslContextCreator(config));
+        newNettyAcceptor.initialize();
         System.out.println("Server started, version 0.13-SNAPSHOT");
         //Bind a shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(newNettyAcceptor::close));

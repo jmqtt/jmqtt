@@ -65,10 +65,16 @@ public class NewNettyAcceptor {
     private EventLoopGroup workerGroup;
 
     @Resource
+    private IConfig config;
+
+    @Resource
     private BytesMetricsCollector bytesMetricsCollector;
 
     @Resource
     private MessageMetricsCollector metricsCollector;
+
+    @Resource
+    private NewNettyMQTTHandler newNettyMQTTHandler;
 
     private Optional<? extends ChannelInboundHandler> metrics;
     private Optional<? extends ChannelInboundHandler> errorsCather;
@@ -82,18 +88,18 @@ public class NewNettyAcceptor {
 
     private Class<? extends ServerSocketChannel> channelClass;
 
-    public void initialize(NewNettyMQTTHandler mqttHandler, IConfig props, ISslContextCreator sslCtxCreator) {
+    public void initialize() {
         LOG.debug("Initializing Netty acceptor");
-
-        nettySoBacklog = props.intProp(BrokerConstants.NETTY_SO_BACKLOG_PROPERTY_NAME, 128);
-        nettySoReuseaddr = props.boolProp(BrokerConstants.NETTY_SO_REUSEADDR_PROPERTY_NAME, true);
-        nettyTcpNodelay = props.boolProp(BrokerConstants.NETTY_TCP_NODELAY_PROPERTY_NAME, true);
-        nettySoKeepalive = props.boolProp(BrokerConstants.NETTY_SO_KEEPALIVE_PROPERTY_NAME, true);
-        nettyChannelTimeoutSeconds = props.intProp(BrokerConstants.NETTY_CHANNEL_TIMEOUT_SECONDS_PROPERTY_NAME, 10);
-        maxBytesInMessage = props.intProp(BrokerConstants.NETTY_MAX_BYTES_PROPERTY_NAME,
+        ISslContextCreator sslCtxCreator = new DefaultMoquetteSslContextCreator(config);
+        nettySoBacklog = config.intProp(BrokerConstants.NETTY_SO_BACKLOG_PROPERTY_NAME, 128);
+        nettySoReuseaddr = config.boolProp(BrokerConstants.NETTY_SO_REUSEADDR_PROPERTY_NAME, true);
+        nettyTcpNodelay = config.boolProp(BrokerConstants.NETTY_TCP_NODELAY_PROPERTY_NAME, true);
+        nettySoKeepalive = config.boolProp(BrokerConstants.NETTY_SO_KEEPALIVE_PROPERTY_NAME, true);
+        nettyChannelTimeoutSeconds = config.intProp(BrokerConstants.NETTY_CHANNEL_TIMEOUT_SECONDS_PROPERTY_NAME, 10);
+        maxBytesInMessage = config.intProp(BrokerConstants.NETTY_MAX_BYTES_PROPERTY_NAME,
                 BrokerConstants.DEFAULT_NETTY_MAX_BYTES_IN_MESSAGE);
 
-        boolean epoll = props.boolProp(BrokerConstants.NETTY_EPOLL_PROPERTY_NAME, false);
+        boolean epoll = config.boolProp(BrokerConstants.NETTY_EPOLL_PROPERTY_NAME, false);
         if (epoll) {
             LOG.info("Netty is using Epoll");
             bossGroup = new EpollEventLoopGroup();
@@ -106,33 +112,33 @@ public class NewNettyAcceptor {
             channelClass = NioServerSocketChannel.class;
         }
 
-        final boolean useFineMetrics = props.boolProp(BrokerConstants.METRICS_ENABLE_PROPERTY_NAME, false);
+        final boolean useFineMetrics = config.boolProp(BrokerConstants.METRICS_ENABLE_PROPERTY_NAME, false);
         if (useFineMetrics) {
             DropWizardMetricsHandler metricsHandler = new DropWizardMetricsHandler();
-            metricsHandler.init(props);
+            metricsHandler.init(config);
             this.metrics = Optional.of(metricsHandler);
         } else {
             this.metrics = Optional.empty();
         }
 
-        final boolean useBugSnag = props.boolProp(BrokerConstants.BUGSNAG_ENABLE_PROPERTY_NAME, false);
+        final boolean useBugSnag = config.boolProp(BrokerConstants.BUGSNAG_ENABLE_PROPERTY_NAME, false);
         if (useBugSnag) {
             BugSnagErrorsHandler bugSnagHandler = new BugSnagErrorsHandler();
-            bugSnagHandler.init(props);
+            bugSnagHandler.init(config);
             this.errorsCather = Optional.of(bugSnagHandler);
         } else {
             this.errorsCather = Optional.empty();
         }
-        initializePlainTCPTransport(mqttHandler, props);
-        initializeWebSocketTransport(mqttHandler, props);
-        if (securityPortsConfigured(props)) {
+        initializePlainTCPTransport(newNettyMQTTHandler, config);
+        initializeWebSocketTransport(newNettyMQTTHandler, config);
+        if (securityPortsConfigured(config)) {
             SslContext sslContext = sslCtxCreator.initSSLContext();
             if (sslContext == null) {
                 LOG.error("Can't initialize SSLHandler layer! Exiting, check your configuration of jks");
                 return;
             }
-            initializeSSLTCPTransport(mqttHandler, props, sslContext);
-            initializeWSSTransport(mqttHandler, props, sslContext);
+            initializeSSLTCPTransport(newNettyMQTTHandler, config, sslContext);
+            initializeWSSTransport(newNettyMQTTHandler, config, sslContext);
         }
     }
 
