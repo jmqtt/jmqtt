@@ -17,10 +17,13 @@
 package io.jmqtt.broker;
 
 import io.jmqtt.BrokerConstants;
+import io.jmqtt.PipelineInitializer;
+import io.jmqtt.acceptor.ByteBufToWebSocketFrameEncoder;
+import io.jmqtt.acceptor.LocalPortReaderFutureListener;
+import io.jmqtt.acceptor.WebSocketFrameToByteBufDecoder;
 import io.jmqtt.broker.config.IConfig;
 import io.jmqtt.broker.metrics.*;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
@@ -28,13 +31,10 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.MessageToMessageDecoder;
-import io.netty.handler.codec.MessageToMessageEncoder;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.HttpServerCodec;
-import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
@@ -49,7 +49,6 @@ import javax.net.ssl.SSLEngine;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -62,65 +61,10 @@ public class NewNettyAcceptor {
     public static final String PLAIN_MQTT_PROTO = "TCP MQTT";
     public static final String SSL_MQTT_PROTO = "SSL MQTT";
 
-    static class WebSocketFrameToByteBufDecoder extends MessageToMessageDecoder<BinaryWebSocketFrame> {
-
-        @Override
-        protected void decode(ChannelHandlerContext chc, BinaryWebSocketFrame frame, List<Object> out)
-                throws Exception {
-            // convert the frame to a ByteBuf
-            ByteBuf bb = frame.content();
-            // System.out.println("WebSocketFrameToByteBufDecoder decode - " +
-            // ByteBufUtil.hexDump(bb));
-            bb.retain();
-            out.add(bb);
-        }
-    }
-
-    static class ByteBufToWebSocketFrameEncoder extends MessageToMessageEncoder<ByteBuf> {
-
-        @Override
-        protected void encode(ChannelHandlerContext chc, ByteBuf bb, List<Object> out) throws Exception {
-            // convert the ByteBuf to a WebSocketFrame
-            BinaryWebSocketFrame result = new BinaryWebSocketFrame();
-            // System.out.println("ByteBufToWebSocketFrameEncoder encode - " +
-            // ByteBufUtil.hexDump(bb));
-            result.content().writeBytes(bb);
-            out.add(result);
-        }
-    }
-
-    private abstract static class PipelineInitializer {
-
-        abstract void init(SocketChannel channel) throws Exception;
-    }
-
-
-    private class LocalPortReaderFutureListener implements ChannelFutureListener {
-        private String transportName;
-
-        LocalPortReaderFutureListener(String transportName) {
-            this.transportName = transportName;
-        }
-
-        @Override
-        public void operationComplete(ChannelFuture future) throws Exception {
-            if (future.isSuccess()) {
-                final SocketAddress localAddress = future.channel().localAddress();
-                if (localAddress instanceof InetSocketAddress) {
-                    InetSocketAddress inetAddress = (InetSocketAddress) localAddress;
-                    LOG.debug("bound {} port: {}", transportName, inetAddress.getPort());
-                    int port = inetAddress.getPort();
-                    ports.put(transportName, port);
-                }
-            }
-        }
-    }
-
     private static final Logger LOG = LoggerFactory.getLogger(NewNettyAcceptor.class);
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
-    private final Map<String, Integer> ports = new HashMap<>();
     private BytesMetricsCollector bytesMetricsCollector = new BytesMetricsCollector();
     private MessageMetricsCollector metricsCollector = new MessageMetricsCollector();
     private Optional<? extends ChannelInboundHandler> metrics;
@@ -216,19 +160,11 @@ public class NewNettyAcceptor {
             ChannelFuture f = b.bind(host, port);
             LOG.info("Server bound to host={}, port={}, protocol={}", host, port, protocol);
             f.sync()
-                .addListener(new LocalPortReaderFutureListener(protocol))
-                .addListener(FIRE_EXCEPTION_ON_FAILURE);
+                    .addListener(new LocalPortReaderFutureListener(protocol))
+                    .addListener(FIRE_EXCEPTION_ON_FAILURE);
         } catch (InterruptedException ex) {
             LOG.error("An interruptedException was caught while initializing integration. Protocol={}", protocol, ex);
         }
-    }
-
-    public int getPort() {
-        return ports.computeIfAbsent(PLAIN_MQTT_PROTO, i -> 0);
-    }
-
-    public int getSslPort() {
-        return ports.computeIfAbsent(SSL_MQTT_PROTO, i -> 0);
     }
 
     private void initializePlainTCPTransport(NewNettyMQTTHandler handler, IConfig props) {
@@ -238,14 +174,14 @@ public class NewNettyAcceptor {
         String tcpPortProp = props.getProperty(BrokerConstants.PORT_PROPERTY_NAME, BrokerConstants.DISABLED_PORT_BIND);
         if (BrokerConstants.DISABLED_PORT_BIND.equals(tcpPortProp)) {
             LOG.info("Property {} has been set to {}. TCP MQTT will be disabled", BrokerConstants.PORT_PROPERTY_NAME,
-                     BrokerConstants.DISABLED_PORT_BIND);
+                    BrokerConstants.DISABLED_PORT_BIND);
             return;
         }
         int port = Integer.parseInt(tcpPortProp);
         initFactory(host, port, PLAIN_MQTT_PROTO, new PipelineInitializer() {
 
             @Override
-            void init(SocketChannel channel) {
+            public void init(SocketChannel channel) {
                 ChannelPipeline pipeline = channel.pipeline();
                 configureMQTTPipeline(pipeline, timeoutHandler, handler);
             }
@@ -278,7 +214,7 @@ public class NewNettyAcceptor {
         if (BrokerConstants.DISABLED_PORT_BIND.equals(webSocketPortProp)) {
             // Do nothing no WebSocket configured
             LOG.info("Property {} has been setted to {}. Websocket MQTT will be disabled",
-                     BrokerConstants.WEB_SOCKET_PORT_PROPERTY_NAME, BrokerConstants.DISABLED_PORT_BIND);
+                    BrokerConstants.WEB_SOCKET_PORT_PROPERTY_NAME, BrokerConstants.DISABLED_PORT_BIND);
             return;
         }
         int port = Integer.parseInt(webSocketPortProp);
@@ -291,7 +227,7 @@ public class NewNettyAcceptor {
         initFactory(host, port, "Websocket MQTT", new PipelineInitializer() {
 
             @Override
-            void init(SocketChannel channel) {
+            public void init(SocketChannel channel) {
                 ChannelPipeline pipeline = channel.pipeline();
                 pipeline.addLast(new HttpServerCodec());
                 pipeline.addLast("aggregator", new HttpObjectAggregator(65536));
@@ -310,7 +246,7 @@ public class NewNettyAcceptor {
         if (BrokerConstants.DISABLED_PORT_BIND.equals(sslPortProp)) {
             // Do nothing no SSL configured
             LOG.info("Property {} has been set to {}. SSL MQTT will be disabled",
-                     BrokerConstants.SSL_PORT_PROPERTY_NAME, BrokerConstants.DISABLED_PORT_BIND);
+                    BrokerConstants.SSL_PORT_PROPERTY_NAME, BrokerConstants.DISABLED_PORT_BIND);
             return;
         }
 
@@ -324,7 +260,7 @@ public class NewNettyAcceptor {
         initFactory(host, sslPort, SSL_MQTT_PROTO, new PipelineInitializer() {
 
             @Override
-            void init(SocketChannel channel) throws Exception {
+            public void init(SocketChannel channel) throws Exception {
                 ChannelPipeline pipeline = channel.pipeline();
                 pipeline.addLast("ssl", createSslHandler(channel, sslContext, needsClientAuth));
                 configureMQTTPipeline(pipeline, timeoutHandler, handler);
@@ -351,7 +287,7 @@ public class NewNettyAcceptor {
         initFactory(host, sslPort, "Secure websocket", new PipelineInitializer() {
 
             @Override
-            void init(SocketChannel channel) throws Exception {
+            public void init(SocketChannel channel) throws Exception {
                 ChannelPipeline pipeline = channel.pipeline();
                 pipeline.addLast("ssl", createSslHandler(channel, sslContext, needsClientAuth));
                 pipeline.addLast("httpEncoder", new HttpResponseEncoder());
@@ -402,7 +338,7 @@ public class NewNettyAcceptor {
         MessageMetrics metrics = metricsCollector.computeMetrics();
         BytesMetrics bytesMetrics = bytesMetricsCollector.computeMetrics();
         LOG.info("Metrics messages[read={}, write={}] bytes[read={}, write={}]", metrics.messagesRead(),
-                 metrics.messagesWrote(), bytesMetrics.readBytes(), bytesMetrics.wroteBytes());
+                metrics.messagesWrote(), bytesMetrics.readBytes(), bytesMetrics.wroteBytes());
     }
 
     private ChannelHandler createSslHandler(SocketChannel channel, SslContext sslContext, boolean needsClientAuth) {

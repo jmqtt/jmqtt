@@ -1,0 +1,11 @@
+netty:
+  so_backlog: 128
+  so_reuseaddr: true
+  tcp_nodelay: true
+  so_keepalive: true
+  channel_timeout:
+    seconds: 10
+  epoll: false
+  mqtt:
+    message_size: 8092
+

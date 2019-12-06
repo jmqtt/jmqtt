@@ -1,8 +1,8 @@
 spring:
   application:
     name: jmqtt
-#  profiles:
-#    active: local
+  profiles:
+    active: local
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     joda-date-time-format: yyyy-MM-dd HH:mm:ss
