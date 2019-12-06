@@ -16,11 +16,14 @@
 
 package io.jmqtt.broker.metrics;
 
+import org.springframework.stereotype.Component;
+
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Collects all the metrics from the various pipeline.
  */
+@Component
 public class BytesMetricsCollector {
 
     private AtomicLong readBytes = new AtomicLong();

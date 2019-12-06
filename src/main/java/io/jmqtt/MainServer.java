@@ -39,12 +39,11 @@ public class MainServer implements CommandLineRunner {
 
     private final Logger logger = LoggerFactory.getLogger(MainServer.class);
 
-    private NewNettyAcceptor acceptor;
-    private volatile boolean initialized;
-
     @Resource
     private IConfig config;
 
+    @Resource
+    private NewNettyAcceptor newNettyAcceptor;
 
     @Resource
     private NewNettyMQTTHandler newNettyMQTTHandler;
@@ -68,13 +67,10 @@ public class MainServer implements CommandLineRunner {
         //   return;
         // }
         // if (res.getOption().equalsIgnoreCase("start")) {
-        acceptor = new NewNettyAcceptor();
-        acceptor.initialize(newNettyMQTTHandler, config, new DefaultMoquetteSslContextCreator(config));
-
-        initialized = true;
+        newNettyAcceptor.initialize(newNettyMQTTHandler, config, new DefaultMoquetteSslContextCreator(config));
         System.out.println("Server started, version 0.13-SNAPSHOT");
         //Bind a shutdown hook
-        Runtime.getRuntime().addShutdownHook(new Thread(acceptor::close));
+        Runtime.getRuntime().addShutdownHook(new Thread(newNettyAcceptor::close));
         // }
     }
 

@@ -44,29 +44,32 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
+import javax.annotation.Resource;
 import javax.net.ssl.SSLEngine;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static io.netty.channel.ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE;
 
+@Component
 public class NewNettyAcceptor {
+    private static final Logger LOG = LoggerFactory.getLogger(NewNettyAcceptor.class);
 
     private static final String MQTT_SUBPROTOCOL_CSV_LIST = "mqtt, mqttv3.1, mqttv3.1.1";
     public static final String PLAIN_MQTT_PROTO = "TCP MQTT";
     public static final String SSL_MQTT_PROTO = "SSL MQTT";
 
-    private static final Logger LOG = LoggerFactory.getLogger(NewNettyAcceptor.class);
-
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
-    private BytesMetricsCollector bytesMetricsCollector = new BytesMetricsCollector();
-    private MessageMetricsCollector metricsCollector = new MessageMetricsCollector();
+
+    @Resource
+    private BytesMetricsCollector bytesMetricsCollector;
+
+    @Resource
+    private MessageMetricsCollector metricsCollector;
+
     private Optional<? extends ChannelInboundHandler> metrics;
     private Optional<? extends ChannelInboundHandler> errorsCather;
 
