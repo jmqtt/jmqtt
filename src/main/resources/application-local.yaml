@@ -3,9 +3,9 @@ netty:
   so_reuseaddr: true
   tcp_nodelay: true
   so_keepalive: true
-  channel_timeout:
-    seconds: 10
+  channel_timeout_seconds: 10
   epoll: false
-  mqtt:
-    message_size: 8092
-
+  max_bytes_inMessage: 8092
+jmqtt:
+  host: 0.0.0.0
+  port: 1883

@@ -38,8 +38,8 @@ public class MainServer implements CommandLineRunner {
 
     private final Logger logger = LoggerFactory.getLogger(MainServer.class);
 
-    @Resource
-    private NewNettyAcceptor newNettyAcceptor;
+    //@Resource
+    //private NewNettyAcceptor newNettyAcceptor;
 
     /**
      * main
@@ -60,10 +60,9 @@ public class MainServer implements CommandLineRunner {
         //   return;
         // }
         // if (res.getOption().equalsIgnoreCase("start")) {
-        newNettyAcceptor.initialize();
-        System.out.println("Server started, version 0.13-SNAPSHOT");
-        //Bind a shutdown hook
-        Runtime.getRuntime().addShutdownHook(new Thread(newNettyAcceptor::close));
+       // newNettyAcceptor.initialize();
+        // Bind a shutdown hook
+        // Runtime.getRuntime().addShutdownHook(new Thread(newNettyAcceptor::close));
         // }
     }
 

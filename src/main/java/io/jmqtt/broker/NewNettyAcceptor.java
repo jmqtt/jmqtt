@@ -53,7 +53,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.netty.channel.ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE;
 
-@Component
+//@Component
 public class NewNettyAcceptor {
     private static final Logger LOG = LoggerFactory.getLogger(NewNettyAcceptor.class);
 
